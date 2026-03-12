@@ -141,7 +141,11 @@ class IncomingCall:
 
 		if not attender:
 			resp = VoiceResponse()
-			resp.say(_("Agent is unavailable to take the call, please call after some time."))
+			resp.say(
+				"En este momento no hay agentes disponibles. Por favor, inténtelo de nuevo más tarde.",
+				voice="Polly.Lucia",
+				language="es-ES",
+			)
 			return resp
 
 		if attender["call_receiving_device"] == "Phone":

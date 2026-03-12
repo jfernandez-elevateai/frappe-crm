@@ -207,6 +207,29 @@
       :description="field.description"
       @change="fieldChange(flt($event.target.value), field)"
     />
+    <div
+      v-else-if="field.fieldtype === 'Data' && field.options === 'URL'"
+      class="flex items-center gap-1"
+    >
+      <FormControl
+        class="flex-1"
+        type="text"
+        :placeholder="getPlaceholder(field)"
+        :value="data[field.fieldname]"
+        :disabled="Boolean(field.read_only)"
+        :description="field.description"
+        @change="fieldChange($event.target.value, field)"
+      />
+      <a
+        v-if="data[field.fieldname]"
+        :href="data[field.fieldname]"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="shrink-0 rounded p-1 text-ink-gray-5 hover:bg-surface-gray-2 hover:text-ink-gray-8"
+      >
+        <ExternalLinkIcon class="h-4 w-4" />
+      </a>
+    </div>
     <FormControl
       v-else
       type="text"
@@ -222,6 +245,7 @@
 import Password from '@/components/Controls/Password.vue'
 import FormattedInput from '@/components/Controls/FormattedInput.vue'
 import EditIcon from '@/components/Icons/EditIcon.vue'
+import ExternalLinkIcon from '@/components/Icons/ExternalLinkIcon.vue'
 import IndicatorIcon from '@/components/Icons/IndicatorIcon.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import TableMultiselectInput from '@/components/Controls/TableMultiselectInput.vue'

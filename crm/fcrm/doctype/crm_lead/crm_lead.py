@@ -189,6 +189,7 @@ class CRMLead(Document):
 		contact.update(
 			{
 				"first_name": self.first_name or self.lead_name,
+				"middle_name": self.middle_name,
 				"last_name": self.last_name,
 				"salutation": self.salutation,
 				"gender": self.gender,
@@ -231,6 +232,8 @@ class CRMLead(Document):
 				"territory": self.territory,
 				"industry": self.industry,
 				"annual_revenue": self.annual_revenue,
+				"no_of_employees": self.no_of_employees,
+				"currency": self.currency if hasattr(self, "currency") else None,
 			}
 		)
 		organization.insert(ignore_permissions=True)
@@ -300,9 +303,6 @@ class CRMLead(Document):
 			"idx",
 			"docstatus",
 			"status",
-			"email",
-			"mobile_no",
-			"phone",
 			"sla",
 			"sla_status",
 			"response_by",
