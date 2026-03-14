@@ -80,7 +80,6 @@ class CRMLead(Document):
 		self.validate_email()
 		if not self.is_new() and self.has_value_changed("lead_owner") and self.lead_owner:
 			self.share_with_agent(self.lead_owner)
-			self.assign_agent(self.lead_owner)
 		if self.has_value_changed("status"):
 			add_status_change_log(self)
 

@@ -84,7 +84,6 @@ class CRMDeal(Document):
 		self.set_primary_email_mobile_no()
 		if not self.is_new() and self.has_value_changed("deal_owner") and self.deal_owner:
 			self.share_with_agent(self.deal_owner)
-			self.assign_agent(self.deal_owner)
 		if self.has_value_changed("status"):
 			add_status_change_log(self)
 			if frappe.db.get_value("CRM Deal Status", self.status, "type") == "Won":
@@ -94,8 +93,7 @@ class CRMDeal(Document):
 		self.update_exchange_rate()
 
 	def after_insert(self):
-		if self.deal_owner:
-			self.assign_agent(self.deal_owner)
+		pass
 
 	def before_save(self):
 		self.apply_sla()
