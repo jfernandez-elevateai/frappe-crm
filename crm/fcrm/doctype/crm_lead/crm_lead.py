@@ -459,15 +459,6 @@ class CRMLead(Document):
 		}
 
 
-def get_permission_query_conditions(user=None):
-	if not user:
-		user = frappe.session.user
-	roles = frappe.get_roles(user)
-	if "System Manager" in roles or "Sales Manager" in roles:
-		return ""
-	json_user = frappe.db.escape(f'"{user}"')
-	return f"JSON_CONTAINS(COALESCE(`tabCRM Lead`.`_assign`, '[]'), {json_user})"
-
 
 @frappe.whitelist()
 def convert_to_deal(
