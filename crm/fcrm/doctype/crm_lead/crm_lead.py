@@ -465,7 +465,8 @@ def get_permission_query_conditions(user=None):
 	roles = frappe.get_roles(user)
 	if "System Manager" in roles or "Sales Manager" in roles:
 		return ""
-	return f"`tabCRM Lead`.`lead_owner` = {frappe.db.escape(user)}"
+	json_user = frappe.db.escape(f'"{user}"')
+	return f"JSON_CONTAINS(COALESCE(`tabCRM Lead`.`_assign`, '[]'), {json_user})"
 
 
 @frappe.whitelist()
