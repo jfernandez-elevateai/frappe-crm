@@ -85,8 +85,7 @@ class CRMLead(Document):
 			add_status_change_log(self)
 
 	def after_insert(self):
-		if self.lead_owner:
-			self.assign_agent(self.lead_owner)
+		pass
 
 	def before_save(self):
 		self.apply_sla()
