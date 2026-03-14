@@ -460,6 +460,15 @@ class CRMLead(Document):
 		}
 
 
+def get_permission_query_conditions(user=None):
+	if not user:
+		user = frappe.session.user
+	roles = frappe.get_roles(user)
+	if "System Manager" in roles or "Sales Manager" in roles:
+		return ""
+	return f"`tabCRM Lead`.`lead_owner` = {frappe.db.escape(user)}"
+
+
 @frappe.whitelist()
 def convert_to_deal(
 	lead: str,
