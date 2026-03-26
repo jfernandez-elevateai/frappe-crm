@@ -310,6 +310,7 @@ const field = computed(() => {
     field.link_filters = JSON.stringify({
       ...(field.link_filters ? JSON.parse(field.link_filters) : {}),
       name: ['in', users.data.crmUsers?.map((user) => user.name)],
+      ignore_user_type: 1,
     })
   }
 
