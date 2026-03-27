@@ -20,6 +20,9 @@ x-backend-defaults: &backend_defaults
 
 services:
 
+  # ---------------------------------------------------------------------------
+  # CONFIGURATOR — escribe common_site_config.json (redis, db, socketio)
+  # ---------------------------------------------------------------------------
   configurator:
     <<: *backend_defaults
     entrypoint: [bash, -c]
@@ -47,25 +50,91 @@ services:
         condition: service_started
     restart: on-failure
 
+  # ---------------------------------------------------------------------------
+  # CREATE-SITE — crea el site si no existe y aplica toda la configuración.
+  # Es idempotente: si el site ya existe (ej. tras bench restore) solo aplica config.
+  #
+  # Variables requeridas: SITE_NAME, HOST_NAME, DB_PASSWORD, ADMIN_PASSWORD
+  # Variables opcionales: ENCRYPTION_KEY, MAIL_*, TWILIO_API_KEY
+  # ---------------------------------------------------------------------------
+  create-site:
+    <<: *backend_defaults
+    entrypoint: [bash, -c]
+    command:
+      - |
+        if [ ! -d "sites/$$SITE_NAME" ]; then
+          bench new-site $$SITE_NAME \
+            --mariadb-user-host-login-scope='%' \
+            --db-root-password $$DB_PASSWORD \
+            --admin-password $$ADMIN_PASSWORD \
+            --install-app crm \
+            --set-default;
+        fi;
+
+        bench --site $$SITE_NAME set-config host_name $$HOST_NAME;
+
+        if [ -n "$$ENCRYPTION_KEY" ]; then
+          bench --site $$SITE_NAME set-config encryption_key "$$ENCRYPTION_KEY";
+        fi;
+
+        if [ -n "$$MAIL_PASSWORD" ]; then
+          bench --site $$SITE_NAME set-config mail_server    "$$MAIL_SERVER";
+          bench --site $$SITE_NAME set-config mail_login     "$$MAIL_LOGIN";
+          bench --site $$SITE_NAME set-config mail_password  "$$MAIL_PASSWORD";
+          bench --site $$SITE_NAME set-config -p mail_port   $$MAIL_PORT;
+          bench --site $$SITE_NAME set-config -p use_tls     $$MAIL_USE_TLS;
+          bench --site $$SITE_NAME set-config -p use_ssl     $$MAIL_USE_SSL;
+          bench --site $$SITE_NAME set-config email_sender_name "$$MAIL_FROM_NAME";
+          bench --site $$SITE_NAME set-config auto_email_id  "$$MAIL_LOGIN";
+        fi;
+
+        if [ -n "$$TWILIO_API_KEY" ]; then
+          bench --site $$SITE_NAME set-config api_key_twilio "$$TWILIO_API_KEY";
+        fi;
+
+        bench --site $$SITE_NAME migrate;
+        bench --site $$SITE_NAME clear-cache;
+    environment:
+      SITE_NAME:      ${SITE_NAME:?SITE_NAME is required}
+      HOST_NAME:      ${HOST_NAME:?HOST_NAME is required}
+      DB_PASSWORD:    ${DB_PASSWORD:?DB_PASSWORD is required}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      MAIL_SERVER:    ${MAIL_SERVER:-}
+      MAIL_LOGIN:     ${MAIL_LOGIN:-}
+      MAIL_PASSWORD:  ${MAIL_PASSWORD:-}
+      MAIL_PORT:      ${MAIL_PORT:-587}
+      MAIL_USE_TLS:   ${MAIL_USE_TLS:-1}
+      MAIL_USE_SSL:   ${MAIL_USE_SSL:-0}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-}
+      TWILIO_API_KEY: ${TWILIO_API_KEY:-}
+    restart: on-failure
+
+  # ---------------------------------------------------------------------------
+  # BACKEND — Gunicorn
+  # ---------------------------------------------------------------------------
   backend:
     <<: *backend_defaults
     environment:
       DB_HOST: db
       DB_PORT: "3306"
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       MARIADB_ROOT_PASSWORD: ${DB_PASSWORD}
 
+  # ---------------------------------------------------------------------------
+  # FRONTEND — Nginx interno de Frappe
+  # ---------------------------------------------------------------------------
   frontend:
     <<: *image
     command: [nginx-entrypoint.sh]
     environment:
       BACKEND: backend:8000
       SOCKETIO: websocket:9000
-      FRAPPE_SITE_NAME_HEADER: crm.elevateai.es
+      FRAPPE_SITE_NAME_HEADER: ${SITE_NAME:?SITE_NAME is required}
       UPSTREAM_REAL_IP_ADDRESS: ${UPSTREAM_REAL_IP_ADDRESS:-127.0.0.1}
       UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
-      PROXY_READ_TIMEOUT: "120"
-      CLIENT_MAX_BODY_SIZE: 50m
+      PROXY_READ_TIMEOUT: ${PROXY_READ_TIMEOUT:-120}
+      CLIENT_MAX_BODY_SIZE: ${CLIENT_MAX_BODY_SIZE:-50m}
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
@@ -73,7 +142,7 @@ services:
       - "8080"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frappe-crm.rule=Host(`crm.elevateai.es`)"
+      - "traefik.http.routers.frappe-crm.rule=Host(`${SITE_NAME}`)"
       - "traefik.http.routers.frappe-crm.entrypoints=websecure"
       - "traefik.http.routers.frappe-crm.tls.certresolver=letsencrypt"
       - "traefik.http.services.frappe-crm.loadbalancer.server.port=8080"
@@ -81,6 +150,9 @@ services:
       - backend
       - websocket
 
+  # ---------------------------------------------------------------------------
+  # WEBSOCKET
+  # ---------------------------------------------------------------------------
   websocket:
     <<: [*depends_on_configurator, *image]
     command: [node, /home/frappe/frappe-bench/apps/frappe/socketio.js]
@@ -88,6 +160,9 @@ services:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 
+  # ---------------------------------------------------------------------------
+  # WORKERS
+  # ---------------------------------------------------------------------------
   queue-short:
     <<: *backend_defaults
     command: bench worker --queue short,default
@@ -100,6 +175,9 @@ services:
     <<: *backend_defaults
     command: bench schedule
 
+  # ---------------------------------------------------------------------------
+  # MARIADB
+  # ---------------------------------------------------------------------------
   db:
     image: mariadb:10.6
     restart: unless-stopped
@@ -109,7 +187,7 @@ services:
       - --skip-character-set-client-handshake
       - --skip-innodb-read-only-compressed
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       MARIADB_ROOT_PASSWORD: ${DB_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost --password=$$MYSQL_ROOT_PASSWORD --silent"]
@@ -120,6 +198,9 @@ services:
     volumes:
       - db-data:/var/lib/mysql
 
+  # ---------------------------------------------------------------------------
+  # REDIS
+  # ---------------------------------------------------------------------------
   redis-cache:
     image: redis:6.2-alpine
     restart: unless-stopped
