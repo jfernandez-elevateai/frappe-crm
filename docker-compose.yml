@@ -1,10 +1,5 @@
 x-image: &image
-  build:
-    context: .
-    dockerfile: Dockerfile
-    args:
-      FRAPPE_BRANCH: version-16
-  image: frappe-crm:local
+  image: ${CRM_IMAGE:-ghcr.io/jfernandez-elevateai/frappe-crm}:${CRM_TAG:-latest}
   restart: unless-stopped
 
 x-depends-on-configurator: &depends_on_configurator
