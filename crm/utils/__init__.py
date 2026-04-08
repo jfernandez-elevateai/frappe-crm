@@ -347,12 +347,17 @@ def create_lead_from_incoming_email(doc: Communication, method: str | None = Non
 
 	lead = frappe.new_doc("CRM Lead")
 	lead.email = doc.sender
-	lead.first_name = doc.sender_full_name or doc.sender.split("@")[0]
+
+	if doc.sender_full_name:
+		lead.first_name = doc.sender_full_name.split(" ")[0]
+		lead.last_name = (
+			doc.sender_full_name.split(" ")[-1] if len(doc.sender_full_name.split(" ")) > 1 else ""
+		)
+	else:
+		lead.first_name = doc.sender.split("@")[0]
 
 	if frappe.db.exists("CRM Lead Source", "Email"):
 		lead.lead_source = "Email"
-	if frappe.db.exists("CRM Lead Status", "New"):
-		lead.lead_status = "New"
 
 	lead.insert(ignore_permissions=True)
 
@@ -361,7 +366,7 @@ def on_comment_insert(doc: Comment, method: str | None = None):
 	if not (doc.reference_doctype and doc.reference_name):
 		return
 
-	if doc.reference_doctype not in ["CRM Lead", "CRM Deal"]:
+	if doc.reference_doctype not in ["CRM Lead", "CRM Deal"] or doc.comment_type != "Comment":
 		return
 
 	if not _should_update_modified(doc):

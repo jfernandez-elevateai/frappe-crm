@@ -104,7 +104,7 @@
                 <div
                   v-for="field in fields"
                   :key="field.fieldname"
-                  class="border-r border-outline-gray-modals h-full"
+                  class="border-r border-outline-gray-modals h-9.5"
                 >
                   <FormControl
                     v-if="
@@ -115,6 +115,9 @@
                         'Currency',
                         'Percent',
                         'Check',
+                        'Duration',
+                        'Rating',
+                        'Button',
                       ].includes(field.fieldtype)
                     "
                     v-model="row[field.fieldname]"
@@ -265,6 +268,36 @@
                     :disabled="Boolean(field.read_only)"
                     @change="fieldChange(flt($event.target.value), field, row)"
                   />
+                  <DurationInput
+                    v-else-if="field.fieldtype === 'Duration'"
+                    :value="row[field.fieldname]"
+                    variant="outline"
+                    :disabled="Boolean(field.read_only)"
+                    @change="(v) => fieldChange(v, field, row)"
+                  />
+                  <RatingInput
+                    v-else-if="field.fieldtype === 'Rating'"
+                    class="px-2 flex-nowrap overflow-x-auto w-full"
+                    :value="row[field.fieldname]"
+                    variant="outline"
+                    :disabled="Boolean(field.read_only)"
+                    :max="field.options || 5"
+                    @change="(v) => fieldChange(v, field, row)"
+                  />
+                  <div
+                    v-else-if="field.fieldtype === 'Button'"
+                    class="flex items-center px-1 h-full"
+                  >
+                    <ButtonControl
+                      class="button-control"
+                      :label="field.label"
+                      :icon="field.icon"
+                      :theme="getButtonTheme(field.button_color)"
+                      :variant="getButtonVariant(field.button_color)"
+                      :disabled="Boolean(field.read_only)"
+                      @click="handleButtonClick(field, row)"
+                    />
+                  </div>
                   <Combobox
                     v-else-if="field.fieldtype === 'Autocomplete'"
                     v-model="row[field.fieldname]"
@@ -344,6 +377,12 @@
 
 <script setup>
 import Password from '@/components/Controls/Password.vue'
+import DurationInput from '@/components/Controls/DurationInput.vue'
+import RatingInput from '@/components/Controls/RatingInput.vue'
+import ButtonControl, {
+  getButtonTheme,
+  getButtonVariant,
+} from '@/components/Controls/ButtonControl.vue'
 import FormattedInput from '@/components/Controls/FormattedInput.vue'
 import GridFieldsEditorModal from '@/components/Controls/GridFieldsEditorModal.vue'
 import GridRowFieldsModal from '@/components/Controls/GridRowFieldsModal.vue'
@@ -376,7 +415,18 @@ const props = defineProps({
   overrides: { type: Object, default: () => ({}) },
 })
 
+const restrictedFieldTypes = [
+  'Section Break',
+  'Column Break',
+  'Tab Break',
+  'Table',
+  'Table MultiSelect',
+  'Image',
+  'Geolocation',
+]
+
 const triggerOnChange = inject('triggerOnChange', () => {})
+const triggerButton = inject('triggerButton', () => {})
 const triggerOnRowAdd = inject('triggerOnRowAdd', () => {})
 const triggerOnRowRemove = inject('triggerOnRowRemove', () => {})
 
@@ -406,7 +456,13 @@ const gridSettings = computed(() => getGridSettings())
 
 const fields = computed(() => {
   let gridViewSettings = getGridViewSettings(props.parentDoctype)
-  let gridFields = getFields()
+  let gridFields = getFields({
+    restrictNoValueFields: false,
+    restrictedFieldTypes,
+  })
+
+  if (!gridFields?.length) return []
+
   if (gridViewSettings.length) {
     let d = gridViewSettings.map((gs) =>
       getFieldObj(gridFields.find((f) => f.fieldname === gs.fieldname)),
@@ -528,6 +584,14 @@ const reorder = () => {
   })
 }
 
+async function handleButtonClick(field, row) {
+  if (typeof field.click === 'function') {
+    await field.click(row)
+  } else {
+    await triggerButton(field.fieldname, row)
+  }
+}
+
 function fieldChange(value, field, row) {
   value = Array.isArray(value)
     ? value
@@ -610,7 +674,7 @@ const getOptions = (options) => {
 }
 
 /* For Autocomplete, Link */
-:deep(.grid-row button),
+:deep(.grid-row button:not(.button-control):not(.rating-star)),
 :deep(.grid-row .combobox > div > div) {
   border: none;
   border-radius: 0;
@@ -631,7 +695,7 @@ const getOptions = (options) => {
   background-color: var(--surface-white);
 }
 
-:deep(.grid-row button:focus-within) {
+:deep(.grid-row button:focus-within:not(.rating-star):not(.button-control)) {
   border: 1px solid var(--outline-gray-2);
 }
 </style>

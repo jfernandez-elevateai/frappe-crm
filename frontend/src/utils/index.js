@@ -38,6 +38,37 @@ export function formatDate(date, format, onlyDate = false, onlyTime = false) {
   return dayjsLocal(date).format(format)
 }
 
+export function formatDuration(totalSeconds, longForm = false) {
+  if (
+    totalSeconds === null ||
+    totalSeconds === undefined ||
+    totalSeconds === ''
+  ) {
+    return ''
+  }
+  const s = parseInt(totalSeconds, 10)
+  if (isNaN(s)) return ''
+  if (s === 0) return longForm ? '0 seconds' : '0s'
+
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+
+  if (longForm) {
+    const parts = []
+    if (h) parts.push(h === 1 ? '1 hour' : `${h} hours`)
+    if (m) parts.push(m === 1 ? '1 minute' : `${m} minutes`)
+    if (sec) parts.push(sec === 1 ? '1 second' : `${sec} seconds`)
+    return parts.join(' ')
+  }
+
+  const parts = []
+  if (h) parts.push(`${h}h`)
+  if (m) parts.push(`${m}m`)
+  if (sec) parts.push(`${sec}s`)
+  return parts.join(' ')
+}
+
 export function getFormat(
   date,
   format,
@@ -860,33 +891,6 @@ export function ConfirmDelete({
       condition: () => isConfirmingDelete.value,
     },
   ]
-}
-
-export function formatTimeHMS(seconds) {
-  const days = Math.floor(seconds / (3600 * 24))
-  const hours = Math.floor((seconds % (3600 * 24)) / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const remainingSeconds = Math.floor(seconds % 60)
-
-  let formattedTime = ''
-
-  if (days > 0) {
-    formattedTime += `${days} days `
-  }
-
-  if (hours > 0) {
-    formattedTime += `${hours} hours `
-  }
-
-  if (minutes > 0) {
-    formattedTime += `${minutes} minutes `
-  }
-
-  if (remainingSeconds > 0) {
-    formattedTime += `${remainingSeconds} seconds`
-  }
-
-  return formattedTime.trim() == '' ? '0 seconds' : formattedTime.trim()
 }
 
 export function getGridTemplateColumnsForTable(columns) {

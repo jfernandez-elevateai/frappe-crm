@@ -1,6 +1,9 @@
 <template>
   <div v-if="field.visible" class="field">
-    <div v-if="field.fieldtype != 'Check'" class="mb-2 text-sm text-ink-gray-5">
+    <div
+      v-if="field.fieldtype != 'Check' && field.fieldtype != 'Button'"
+      class="mb-2 text-sm text-ink-gray-5"
+    >
       {{ __(field.label) }}
       <span
         v-if="
@@ -14,9 +17,16 @@
     <FormControl
       v-if="
         (field.read_only || field.fieldtype === 'Read Only') &&
-        !['Int', 'Float', 'Currency', 'Percent', 'Check'].includes(
-          field.fieldtype,
-        )
+        ![
+          'Int',
+          'Float',
+          'Currency',
+          'Percent',
+          'Check',
+          'Duration',
+          'Rating',
+          'Button',
+        ].includes(field.fieldtype)
       "
       v-model="data[field.fieldname]"
       type="text"
@@ -207,6 +217,7 @@
       :description="field.description"
       @change="fieldChange(flt($event.target.value), field)"
     />
+<<<<<<< HEAD
     <div
       v-else-if="field.fieldtype === 'Data' && field.options === 'URL'"
       class="flex items-center gap-1"
@@ -230,11 +241,37 @@
         <ExternalLinkIcon class="h-4 w-4" />
       </a>
     </div>
+=======
+    <DurationInput
+      v-else-if="field.fieldtype === 'Duration'"
+      :value="data[field.fieldname]"
+      :placeholder="getPlaceholder(field)"
+      :disabled="Boolean(field.read_only)"
+      :description="field.description"
+      @change="(v) => fieldChange(v, field)"
+    />
+    <RatingInput
+      v-else-if="field.fieldtype === 'Rating'"
+      :value="data[field.fieldname]"
+      :max="field.options || 5"
+      :disabled="Boolean(field.read_only)"
+      @change="(v) => fieldChange(v, field)"
+    />
+    <ButtonControl
+      v-else-if="field.fieldtype === 'Button'"
+      :label="field.label"
+      :icon="field.icon"
+      :theme="getButtonTheme(field.button_color)"
+      :variant="getButtonVariant(field.button_color)"
+      :disabled="Boolean(field.read_only)"
+      @click="handleButtonClick(field)"
+    />
+>>>>>>> 43ddab247ff41e30bf0a9787e7c136e506459018
     <FormControl
       v-else
       type="text"
       :placeholder="getPlaceholder(field)"
-      :value="getDataValue(data[field.fieldname], field)"
+      :value="data[field.fieldname]"
       :disabled="Boolean(field.read_only)"
       :description="field.description"
       @change="fieldChange($event.target.value, field)"
@@ -244,6 +281,12 @@
 <script setup>
 import Password from '@/components/Controls/Password.vue'
 import FormattedInput from '@/components/Controls/FormattedInput.vue'
+import DurationInput from '@/components/Controls/DurationInput.vue'
+import RatingInput from '@/components/Controls/RatingInput.vue'
+import ButtonControl, {
+  getButtonTheme,
+  getButtonVariant,
+} from '@/components/Controls/ButtonControl.vue'
 import EditIcon from '@/components/Icons/EditIcon.vue'
 import ExternalLinkIcon from '@/components/Icons/ExternalLinkIcon.vue'
 import IndicatorIcon from '@/components/Icons/IndicatorIcon.vue'
@@ -275,21 +318,26 @@ const { getFormattedPercent, getFormattedFloat, getFormattedCurrency } =
 const { users, getUser } = usersStore()
 
 let triggerOnChange
+let triggerButton
 let parentDoc
 
 if (!isGridRow) {
   const {
     triggerOnChange: trigger,
+    triggerButton: triggerBtn,
     triggerOnRowAdd,
     triggerOnRowRemove,
   } = useDocument(doctype, data.value.name)
   triggerOnChange = trigger
+  triggerButton = triggerBtn
 
   provide('triggerOnChange', triggerOnChange)
+  provide('triggerButton', triggerButton)
   provide('triggerOnRowAdd', triggerOnRowAdd)
   provide('triggerOnRowRemove', triggerOnRowRemove)
 } else {
   triggerOnChange = inject('triggerOnChange', () => {})
+  triggerButton = inject('triggerButton', () => {})
   parentDoc = inject('parentDoc')
 }
 
@@ -393,6 +441,14 @@ const getOptions = (options) => {
   }
 }
 
+async function handleButtonClick(field) {
+  if (typeof field.click === 'function') {
+    return await field.click(data.value)
+  } else {
+    return await triggerButton(field.fieldname)
+  }
+}
+
 function fieldChange(value, df) {
   value = Array.isArray(value)
     ? value
@@ -405,13 +461,6 @@ function fieldChange(value, df) {
   } else {
     triggerOnChange(df.fieldname, value)
   }
-}
-
-function getDataValue(value, field) {
-  if (field.fieldtype === 'Duration') {
-    return value || 0
-  }
-  return value
 }
 </script>
 <style scoped>
