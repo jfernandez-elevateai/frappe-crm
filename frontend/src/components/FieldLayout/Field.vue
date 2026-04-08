@@ -217,7 +217,6 @@
       :description="field.description"
       @change="fieldChange(flt($event.target.value), field)"
     />
-<<<<<<< HEAD
     <div
       v-else-if="field.fieldtype === 'Data' && field.options === 'URL'"
       class="flex items-center gap-1"
@@ -241,7 +240,6 @@
         <ExternalLinkIcon class="h-4 w-4" />
       </a>
     </div>
-=======
     <DurationInput
       v-else-if="field.fieldtype === 'Duration'"
       :value="data[field.fieldname]"
@@ -266,7 +264,6 @@
       :disabled="Boolean(field.read_only)"
       @click="handleButtonClick(field)"
     />
->>>>>>> 43ddab247ff41e30bf0a9787e7c136e506459018
     <FormControl
       v-else
       type="text"
